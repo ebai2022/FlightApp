@@ -1,0 +1,33 @@
+What is one thing that you learned:
+I learned how to use SQL queries through PreparedStatements in Java.
+
+What is one thing that surprised you:
+I was very surprised that ResultSets in Java do not have a size or length field.
+
+What is a question you still have after doing this assignment:
+Why hasn't there been a system created that uses just Java or SQL to do all of this instead of doing both?
+
+Recall the debugging technique you described in the HW3 writeup.  Did you use it or something similar when debugging M1?
+(this is a simple yes/no question):
+Yes
+
+In 1-2 sentences, describe a bug in one of your M1 queries.  Then, describe how you noticed the bug and, in 3-4 sentences, how you fixed it.  If you answered “yes” above, please describe a different bug.
+I had a bug in my query for one stop destinations as it was not returning the column names in the format I
+expected it to return (e.g. F1.fid or fid). I noticed this bug while I was trying to parse out all the information
+from the flight(s) to put into my route, as my code was sometimes failing type conversions. There were also instances
+where I knew there were flights that existed, but my program returned that there were no flights. I ended up printing
+the results from my query and my route creation and seeing that there was a mismatch in the values I expected and the 
+actual values present. I fixed this by explicitly ordering the return order in my query in a way that is indexed exactly
+how I expect when I'm parsing, so instead of parsing by arbitrary column names, I can just use set indexes that each
+column refers to.
+
+This project demonstrated how application logic can perform transformations on query results (eg, merging direct and indirect itineraries) or on user input (eg, salting and hashing passwords).  What other logic would you like to see and/or implement in FlightApp's Java; ie, logic that cannot be done in SQL or by the user?
+It would be great for there to be logic in the application that supports saving a certain route (e.g. Seattle WA to Boston MA)
+and then performing queries directly on that saved route. This would make it much easier for a user to find the
+cheapest flights from point A to point B as they could just search through different days with this pre-set route 
+instead of having to keep querying the cities every time. Also, the application is very finiky as if I spell the city 
+name wrong it will return no results. It would be great to have a selection menu of cities (like autofill) instead 
+of the current logic which is very error prone.
+
+[optional] how many hours you spent on M0+M1, and how many students (if any!) you collaborated with:
+13 hours, 2 students

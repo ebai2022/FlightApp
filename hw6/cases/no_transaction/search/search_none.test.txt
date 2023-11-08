@@ -1,0 +1,11 @@
+# Verify that we get the correct message if the route has no flights
+
+# commands:
+search "Seattle WA" "Devils Lake ND" 1 1 1
+quit
+*
+
+# expected command output:
+No flights match your selection
+Goodbye
+*
