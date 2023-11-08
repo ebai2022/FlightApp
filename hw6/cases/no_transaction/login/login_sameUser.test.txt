@@ -1,0 +1,15 @@
+# Verify that a logged-in user cannot login as themselves again in the same session
+
+# commands to execute:
+create user1 password 100
+login user1 password
+login user1 password
+quit
+*
+
+# expected output:
+Created user user1
+Logged in as user1
+User already logged in
+Goodbye
+*

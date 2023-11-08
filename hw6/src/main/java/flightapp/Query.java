@@ -5,7 +5,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.io.*;
 
 /**
  * Runs queries against a back-end database
@@ -22,9 +25,16 @@ public class Query extends QueryAbstract {
   private static final String get_password = "SELECT password FROM Users_ebai2022 WHERE username = ?";
 
   // breaking ties by actual_time, then fid1, then fid2
-  private static final String get_direct_flights = "SELECT TOP (?) * FROM FLIGHTS F, CARRIERS C WHERE F.carrier_id = C.cid AND origin_city = ? AND dest_city = ? AND day_of_month = ? AND canceled = 0 ORDER BY actual_time, fid";
+  private static final String get_direct_flights = "SELECT TOP (?) * FROM FLIGHTS F, "
+  + "CARRIERS C WHERE F.carrier_id = C.cid AND origin_city = ? AND dest_city = ? "
+  + "AND day_of_month = ? AND canceled = 0 ORDER BY actual_time, fid";
   // is it possible for a flight to go from dest 1 back to dest 1 and then to dest 2?
-  private static final String get_onestop_flights = "SELECT TOP (?) * FROM FLIGHTS F1, FLIGHTS F2 WHERE F1.origin_city = ? AND F1.dest_city = F2.origin_city AND F2.dest_city = ? AND F1.day_of_month = ? AND F2.day_of_month = ? AND F1.canceled = 0 AND F2.canceled = 0 ORDER BY F1.actual_time + F2.actual_time, F1.fid, F2.fid";
+  private static final String get_onestop_flights = "SELECT TOP (?) F1.fid, F2.fid, F1.carrier_id, "
+  + "F2.carrier_id, F1.flight_num, F2.flight_num, F1.origin_city, F2.origin_city, F1.dest_city, "
+  + "F2.dest_city, F1.actual_time, F2.actual_time, F1.capacity, F2.capacity, F1.price, F2.price "
+  + "FROM FLIGHTS F1, FLIGHTS F2 WHERE F1.origin_city = ? AND F1.dest_city = F2.origin_city "
+  + "AND F2.dest_city = ? AND F1.day_of_month = ? AND F2.day_of_month = ? AND F1.canceled = 0 "
+  + "AND F2.canceled = 0 ORDER BY F1.actual_time + F2.actual_time, F1.fid, F2.fid";
   //
   // Instance variables
   //
@@ -37,6 +47,7 @@ public class Query extends QueryAbstract {
   private PreparedStatement get_direct_flights_stmt;
   private PreparedStatement get_onestop_flights_stmt;
   private boolean isLoggedIn;
+  private List<Routes> routes;
 
   protected Query() throws SQLException, IOException {
     prepareStatements();
@@ -148,192 +159,133 @@ public class Query extends QueryAbstract {
 
     StringBuffer sb = new StringBuffer();
     try {
-      int itinerary_number = 0;
+      /*
+       * Check the amount of direct flights. If we are only asking for direct flights, return that string buffer.
+       * Check if we need more flights to reach the number of itineraries. If not, return the same string buffer as previous.
+       * If so, get indirect flights and merge the two string buffers.
+       */
+      routes = new ArrayList<Routes>();
       // get all direct flights
-      if (directFlight){
-        get_direct_flights_stmt.clearParameters();
-        get_direct_flights_stmt.setInt(1, numberOfItineraries);
-        get_direct_flights_stmt.setString(2, originCity);
-        get_direct_flights_stmt.setString(3, destinationCity);
-        get_direct_flights_stmt.setInt(4, dayOfMonth);
-        ResultSet oneHopResults = get_direct_flights_stmt.executeQuery();
-
-        while (oneHopResults.next()) {
-          int result_time = oneHopResults.getInt("actual_time");
-          // Itinerary [itinerary number]: [number of flights] flight(s), [total flight time] minutes\n [first flight in itinerary]\n ... [last flight in itinerary]\n
-          sb.append("Itinerary " + itinerary_number + ": 1 flight(s), " + result_time + " minutes\n");
-          sb.append(print_direct(oneHopResults));
-          itinerary_number++;
-        }
-        oneHopResults.close();
-      } else {
-        // get all direct flights
-        get_direct_flights_stmt.clearParameters();
-        get_direct_flights_stmt.setInt(1, numberOfItineraries);
-        get_direct_flights_stmt.setString(2, originCity);
-        get_direct_flights_stmt.setString(3, destinationCity);
-        get_direct_flights_stmt.setInt(4, dayOfMonth);
-        ResultSet oneHopResults = get_direct_flights_stmt.executeQuery();
-        ArrayList<ResultSet> direct_results = new ArrayList<ResultSet>();
-        while (oneHopResults.next()) {
-          direct_results.add(oneHopResults);
-        }
-        oneHopResults.close();
-
-        // get all indirect flights
+      get_direct_flights_stmt.clearParameters();
+      get_direct_flights_stmt.setInt(1, numberOfItineraries);
+      get_direct_flights_stmt.setString(2, originCity);
+      get_direct_flights_stmt.setString(3, destinationCity);
+      get_direct_flights_stmt.setInt(4, dayOfMonth);
+      ResultSet oneHopResults = get_direct_flights_stmt.executeQuery();
+      while (oneHopResults.next()) {
+        int fid = oneHopResults.getInt("fid");
+        int day = oneHopResults.getInt("day_of_month");
+        String carrierId = oneHopResults.getString("carrier_id");
+        String flightNum = oneHopResults.getString("flight_num");
+        String flight_origin = oneHopResults.getString("origin_city");
+        String flight_dest = oneHopResults.getString("dest_city");
+        int time = oneHopResults.getInt("actual_time");
+        int capacity = oneHopResults.getInt("capacity");
+        int price = oneHopResults.getInt("price");
+        Flight f = new Flight(fid, day, carrierId, flightNum, flight_origin, flight_dest, time, capacity, price);
+        List<Flight> flights = new ArrayList<Flight>();
+        flights.add(f);
+        Routes r = new Routes(0, time, day, price, flights, flight_origin, flight_dest);
+        routes.add(r);
+      }
+      oneHopResults.close();
+      
+      if (!directFlight && routes.size() < numberOfItineraries){
+        // If we have gotten to this point, we know we need to fulfill the rest of the flights with indirect flights
         get_onestop_flights_stmt.clearParameters();
-        get_onestop_flights_stmt.setInt(1, numberOfItineraries - direct_results.size());
+        get_onestop_flights_stmt.setInt(1, numberOfItineraries - routes.size());
         get_onestop_flights_stmt.setString(2, originCity);
         get_onestop_flights_stmt.setString(3, destinationCity);
         get_onestop_flights_stmt.setInt(4, dayOfMonth);
         get_onestop_flights_stmt.setInt(5, dayOfMonth);
         ResultSet twoHopResults = get_onestop_flights_stmt.executeQuery();
-        ArrayList<ResultSet> indirect_results = new ArrayList<ResultSet>();
-        while (twoHopResults.next()) {
-          indirect_results.add(twoHopResults);
+        while (twoHopResults.next()){
+          int fid1 = twoHopResults.getInt(1);
+          int fid2 = twoHopResults.getInt(2);
+          String carrierId1 = twoHopResults.getString(3);
+          String carrierId2 = twoHopResults.getString(4);
+          String flightNum1 = twoHopResults.getString(5);
+          String flightNum2 = twoHopResults.getString(6);
+          String flight_origin1 = twoHopResults.getString(7);
+          String flight_origin2 = twoHopResults.getString(8);
+          String flight_dest1 = twoHopResults.getString(9);
+          String flight_dest2 = twoHopResults.getString(10);
+          int time1 = twoHopResults.getInt(11);
+          int time2 = twoHopResults.getInt(12);
+          int capacity1 = twoHopResults.getInt(13);
+          int capacity2 = twoHopResults.getInt(14);
+          int price1 = twoHopResults.getInt(15);
+          int price2 = twoHopResults.getInt(16);
+          int day = dayOfMonth;
+          Flight f1 = new Flight(fid1, day, carrierId1, flightNum1, flight_origin1, flight_dest1, time1, capacity1, price1);
+          Flight f2 = new Flight(fid2, day, carrierId2, flightNum2, flight_origin2, flight_dest2, time2, capacity2, price2);
+          List<Flight> flights = new ArrayList<Flight>();
+          flights.add(f1);
+          flights.add(f2);
+          Routes r = new Routes(0, time1 + time2, day, price1 + price2, flights, flight_origin1, flight_dest2);
+          routes.add(r);
         }
         twoHopResults.close();
-
-        // merge the results and print them
-        int i = 0;
-        int j = 0;
-        while (i < direct_results.size() && j < indirect_results.size()){
-          ResultSet direct_result = direct_results.get(i);
-          ResultSet indirect_result = indirect_results.get(j);
-          int direct_time = direct_result.getInt("actual_time");
-          int indirect_time = indirect_result.getInt("actual_time1") + indirect_result.getInt("actual_time2");
-          // more equality cases
-          if (compare(direct_result, indirect_result)){
-            int result_time = direct_result.getInt("actual_time");
-            sb.append("Itinerary " + itinerary_number + ": 1 flight(s), " + result_time + " minutes\n");
-            sb.append(print_direct(direct_result));
-            i++;
-          } else {
-            int result_time1 = indirect_result.getInt("actual_time1");
-            int result_time2 = indirect_result.getInt("actual_time2");
-            sb.append("Itinerary " + itinerary_number + ": 2 flight(s), " + (result_time1 + result_time2) + " minutes\n");
-            sb.append(print_indirect(indirect_result));
-            j++;
-          }
-          itinerary_number++;
-        }
-
-        /*
-        int result_dayOfMonth = twoHopResults.getInt("day_of_month");
-        String fid1 = twoHopResults.getString("fid1");
-        String fid2 = twoHopResults.getString("fid2");
-        String result_carrierId1 = twoHopResults.getString("carrier_id1");
-        String result_carrierId2 = twoHopResults.getString("carrier_id2");
-        String result_flightNum1 = twoHopResults.getString("flight_num1");
-        String result_flightNum2 = twoHopResults.getString("flight_num2");
-        String result_originCity1 = twoHopResults.getString("origin_city1");
-        String result_originCity2 = twoHopResults.getString("origin_city2");
-        String result_destCity1 = twoHopResults.getString("dest_city1");
-        String result_destCity2 = twoHopResults.getString("dest_city2");
-        int result_capacity1 = twoHopResults.getInt("capacity1");
-        int result_capacity2 = twoHopResults.getInt("capacity2");
-        int result_time1 = twoHopResults.getInt("actual_time1");
-        int result_time2 = twoHopResults.getInt("actual_time2");
-        int result_price1 = twoHopResults.getInt("price1");
-        int result_price2 = twoHopResults.getInt("price2");
-        sb.append("Itinerary " + itinerary_number + ": 2 flight(s), " + (result_time1 + result_time2) + " minutes\n");
-        sb.append("ID: " + fid1 + " Day: " + result_dayOfMonth + " Carrier: " + result_carrierId1 + " Number: " 
-        + result_flightNum1 + " Origin: " + result_originCity1 + " Dest: " + result_destCity1 + " Duration: " 
-        + result_time1 + " Capacity: " + result_capacity1 + " Price: " + result_price1 + "\n");
-        sb.append("ID: " + fid2 + " Day: " + result_dayOfMonth + " Carrier: " + result_carrierId2 + " Number: " 
-        + result_flightNum2 + " Origin: " + result_originCity2 + " Dest: " + result_destCity2 + " Duration: " 
-        + result_time2 + " Capacity: " + result_capacity2 + " Price: " + result_price2 + "\n");
-        */
       }
+      // merge the results and print them
     } catch (SQLException e) {
       e.printStackTrace();
       return "Failed to search\n";
     }
-    if (sb.length() == 0) {
+    if (routes.size() == 0) {
       return "No flights match your selection\n";
+    }
+    Collections.sort(routes);
+    for (int i = 0; i < routes.size(); i++) {
+      Routes curr = routes.get(i);
+      curr.route_num = i;
+      sb.append(curr);
     }
     return sb.toString();
   }
-  
-  /*
-   * rs1 is guaranteed to be a direct flight, rs2 is guaranteed to be an indirect flight
-   * @Returns True if rs1 comes first, false otherwise
-   */
-  private boolean compare(ResultSet rs1, ResultSet rs2){
-    try {
-      int direct_time = rs1.getInt("actual_time");
-      int indirect_time = rs2.getInt("actual_time1") + rs2.getInt("actual_time2");
-      if (direct_time < indirect_time){
-        return true;
-      } 
-      else if (direct_time > indirect_time){
-        return false;
-      } else {
-        int fid1 = rs2.getInt("fid1");
-        int fid2 = rs2.getInt("fid2");
-        if (fid1 <= fid2){
-          return true;
-        } else {
-          return false;
+
+  class Routes implements Comparable<Routes>{
+    public int route_num;
+    public int time;
+    public int date;
+    public int price;
+    public List<Flight> flights;
+    public String origin_city;
+    public String dest_city;
+
+    public Routes(int route_num, int time, int date, int price, List<Flight> flights, String origin_city, String dest_city) {
+      this.route_num = route_num;
+      this.time = time;
+      this.date = date;
+      this.price = price;
+      this.flights = flights;
+      this.origin_city = origin_city;
+      this.dest_city = dest_city;
+    }
+
+    @Override
+    public int compareTo(Routes r2) {
+      if (this.time == r2.time) {
+        if (this.flights.get(0).fid == r2.flights.get(0).fid) {
+          return this.flights.get(1).fid - r2.flights.get(1).fid;
         }
+        return this.flights.get(0).fid - r2.flights.get(0).fid;
       }
-    } catch (SQLException e) {
-      e.printStackTrace();
+      return this.time - r2.time;
     }
-    return false;
+
+    @Override
+    public String toString() {
+      StringBuilder str = new StringBuilder();
+      str.append("Itinerary " + this.route_num + ": " + flights.size() + " flight(s), " + this.time + " minutes\n");
+      for (Flight f : flights) {
+        str.append(f);
+        str.append("\n");
+      }
+      return str.toString();
+    }
   }
 
-  private String print_direct(ResultSet direct_result){
-    try {
-      int result_dayOfMonth = direct_result.getInt("day_of_month");
-      String fid = direct_result.getString("fid");
-      String result_carrierId = direct_result.getString("carrier_id");
-      String result_flightNum = direct_result.getString("flight_num");
-      String result_originCity = direct_result.getString("origin_city");
-      String result_destCity = direct_result.getString("dest_city");
-      int result_time = direct_result.getInt("actual_time");
-      int result_capacity = direct_result.getInt("capacity");
-      int result_price = direct_result.getInt("price");
-      return "ID: " + fid + " Day: " + result_dayOfMonth + " Carrier: " + result_carrierId + " Number: " 
-          + result_flightNum + " Origin: " + result_originCity + " Dest: " + result_destCity + " Duration: " 
-          + result_time + " Capacity: " + result_capacity + " Price: " + result_price + "\n";
-    } catch (SQLException e) {
-      e.printStackTrace();
-    }
-    return "";
-  }
-
-  private String print_indirect(ResultSet indirect_result){
-    try{
-      int result_dayOfMonth = indirect_result.getInt("day_of_month");
-      String fid1 = indirect_result.getString("fid1");
-      String fid2 = indirect_result.getString("fid2");
-      String result_carrierId1 = indirect_result.getString("carrier_id1");
-      String result_carrierId2 = indirect_result.getString("carrier_id2");
-      String result_flightNum1 = indirect_result.getString("flight_num1");
-      String result_flightNum2 = indirect_result.getString("flight_num2");
-      String result_originCity1 = indirect_result.getString("origin_city1");
-      String result_originCity2 = indirect_result.getString("origin_city2");
-      String result_destCity1 = indirect_result.getString("dest_city1");
-      String result_destCity2 = indirect_result.getString("dest_city2");
-      int result_capacity1 = indirect_result.getInt("capacity1");
-      int result_capacity2 = indirect_result.getInt("capacity2");
-      int result_time1 = indirect_result.getInt("actual_time1");
-      int result_time2 = indirect_result.getInt("actual_time2");
-      int result_price1 = indirect_result.getInt("price1");
-      int result_price2 = indirect_result.getInt("price2");
-      String p1 = "ID: " + fid1 + " Day: " + result_dayOfMonth + " Carrier: " + result_carrierId1 + " Number: " 
-            + result_flightNum1 + " Origin: " + result_originCity1 + " Dest: " + result_destCity1 + " Duration: " 
-            + result_time1 + " Capacity: " + result_capacity1 + " Price: " + result_price1 + "\n";
-      String p2 = "ID: " + fid2 + " Day: " + result_dayOfMonth + " Carrier: " + result_carrierId2 + " Number: " 
-            + result_flightNum2 + " Origin: " + result_originCity2 + " Dest: " + result_destCity2 + " Duration: " 
-            + result_time2 + " Capacity: " + result_capacity2 + " Price: " + result_price2 + "\n";
-      return p1 + p2;
-    } catch (SQLException e) {
-      e.printStackTrace();
-    }
-    return "";
-  }
   /* See QueryAbstract.java for javadoc */
   public String transaction_book(int itineraryId) {
     // TODO: YOUR CODE HERE
