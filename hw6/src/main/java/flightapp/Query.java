@@ -23,7 +23,9 @@ public class Query extends QueryAbstract {
   private static final String clear_reservations = "DELETE FROM RESERVATIONS_ebai2022";
   private static final String create_customer = "INSERT INTO Users_ebai2022 VALUES (?, ?, ?)";
   private static final String get_password = "SELECT password FROM Users_ebai2022 WHERE username = ?";
-
+  private static final String check_same_day_reservation = "SELECT * FROM RESERVATIONS_ebai2022 R, FLIGHTS F "
+  + "WHERE R.fid1 = F.fid AND username = ? AND F.day_of_month = ?";
+  private static final String get_curr_rid_max = "SELECT MAX(rid) FROM RESERVATIONS_ebai2022";
   // breaking ties by actual_time, then fid1, then fid2
   private static final String get_direct_flights = "SELECT TOP (?) * FROM FLIGHTS F, "
   + "CARRIERS C WHERE F.carrier_id = C.cid AND origin_city = ? AND dest_city = ? "
@@ -35,6 +37,12 @@ public class Query extends QueryAbstract {
   + "FROM FLIGHTS F1, FLIGHTS F2 WHERE F1.origin_city = ? AND F1.dest_city = F2.origin_city "
   + "AND F2.dest_city = ? AND F1.day_of_month = ? AND F2.day_of_month = ? AND F1.canceled = 0 "
   + "AND F2.canceled = 0 ORDER BY F1.actual_time + F2.actual_time, F1.fid, F2.fid";
+  private static final String book_reservation = "INSERT INTO RESERVATIONS_ebai2022 VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+  private static final String check_reservation_status = "SELECT COUNT(*) FROM RESERVATIONS_ebai2022 WHERE rid = ? AND username = ? AND paid = 0";
+  private static final String get_reservation = "SELECT * FROM RESERVATIONS_ebai2022 WHERE rid = ? AND username = ?";
+  private static final String get_user_reservation = "SELECT * FROM RESERVATIONS_ebai2022 WHERE username = ?";
+  private static final String update_paid = "UPDATE RESERVATIONS_ebai2022 SET paid = 1 WHERE rid = ? AND username = ?";
+  private static final String update_user_balance = "UPDATE Users_ebai2022 SET balance = ? WHERE username = ?";
   //
   // Instance variables
   //
@@ -44,9 +52,18 @@ public class Query extends QueryAbstract {
   private PreparedStatement clear_reservations_stmt;
   private PreparedStatement create_customer_stmt; 
   private PreparedStatement get_password_stmt;
+  private PreparedStatement check_same_day_reservation_stmt;
+  private PreparedStatement get_curr_rid_max_stmt;
   private PreparedStatement get_direct_flights_stmt;
   private PreparedStatement get_onestop_flights_stmt;
+  private PreparedStatement book_reservation_stmt;
+  private PreparedStatement check_reservation_status_stmt;
+  private PreparedStatement get_reservation_stmt;
+  private PreparedStatement get_user_reservation_stmt;
+  private PreparedStatement update_paid_stmt;
+  private PreparedStatement update_user_balance_stmt;
   private boolean isLoggedIn;
+  private String username;
   private List<Routes> routes;
 
   protected Query() throws SQLException, IOException {
@@ -80,8 +97,16 @@ public class Query extends QueryAbstract {
     clear_reservations_stmt = conn.prepareStatement(clear_reservations);
     create_customer_stmt = conn.prepareStatement(create_customer);
     get_password_stmt = conn.prepareStatement(get_password);
+    check_same_day_reservation_stmt = conn.prepareStatement(check_same_day_reservation);
+    get_curr_rid_max_stmt = conn.prepareStatement(get_curr_rid_max);
     get_direct_flights_stmt = conn.prepareStatement(get_direct_flights);
     get_onestop_flights_stmt = conn.prepareStatement(get_onestop_flights);
+    book_reservation_stmt = conn.prepareStatement(book_reservation);
+    check_reservation_status_stmt = conn.prepareStatement(check_reservation_status);
+    get_reservation_stmt = conn.prepareStatement(get_reservation);
+    get_user_reservation_stmt = conn.prepareStatement(get_user_reservation);
+    update_paid_stmt = conn.prepareStatement(update_paid);
+    update_user_balance_stmt = conn.prepareStatement(update_user_balance);
   }
 
   /* See QueryAbstract.java for javadoc */
@@ -102,6 +127,7 @@ public class Query extends QueryAbstract {
         if (PasswordUtils.plaintextMatchesSaltedHash(password, saltedHash)) {
           isLoggedIn = true;
           rs.close();
+          this.username = username.toLowerCase();
           return "Logged in as " + username + "\n";
         }
       }
@@ -244,6 +270,175 @@ public class Query extends QueryAbstract {
     return sb.toString();
   }
 
+  /* See QueryAbstract.java for javadoc */
+  public String transaction_book(int itineraryId) {
+    // TODO: YOUR CODE HERE
+    if (!isLoggedIn) {
+      return "Cannot book reservations, not logged in\n";
+    }
+    // itinerary must be in the list of routes (which stores the most recent search performed within the same login session)
+    if (routes == null || itineraryId < 0 || itineraryId >= routes.size()) {
+      return "No such itinerary " + itineraryId + "\n";
+    }
+    try {
+      Routes r = routes.get(itineraryId);
+      // check if the user has a reservation on the same day as the one they are trying to book now
+      check_same_day_reservation_stmt.clearParameters();
+      check_same_day_reservation_stmt.setString(1, this.username);
+      check_same_day_reservation_stmt.setInt(2, r.date);
+      ResultSet rs = check_same_day_reservation_stmt.executeQuery();
+      while (rs.next()) {
+        rs.close();
+        return "You cannot book two flights in the same day\n";
+      }
+      // check if the flight(s) maximum capacity would be exceeded (it needs >= 1 seat available)
+      for (Flight f : r.flights) {
+        int capacity = checkFlightCapacity(f.fid);
+        if (capacity <= 0) {
+          return "Booking failed\n";
+        }
+      }
+      // get current reservation ID maximum
+      ResultSet prev_RID = get_curr_rid_max_stmt.executeQuery();
+      prev_RID.next();
+      int rid = prev_RID.getInt(1) + 1;
+      prev_RID.close();
+
+      // create the reservation
+      book_reservation_stmt.clearParameters();
+      book_reservation_stmt.setInt(1, rid);
+      book_reservation_stmt.setString(2, this.username);
+      book_reservation_stmt.setInt(3, r.date);
+      book_reservation_stmt.setInt(4, 0);
+      book_reservation_stmt.setInt(5, r.price);
+      book_reservation_stmt.setInt(6, r.flights.get(0).fid);
+      // if we have a direct flight, set the second flight to null and the direct boolean to true
+      if (r.flights.size() == 1) {
+        book_reservation_stmt.setNull(7, java.sql.Types.INTEGER);
+        book_reservation_stmt.setInt(8, 0);
+      } else {
+        book_reservation_stmt.setInt(7, r.flights.get(1).fid);
+        book_reservation_stmt.setInt(8, 1);
+      }
+      book_reservation_stmt.executeUpdate();
+      return "Booked flight(s), reservation ID: " + rid + "\n";
+    } catch (SQLException e) {
+      e.printStackTrace();
+      return "Booking failed\n";
+    }
+  }
+
+  /* See QueryAbstract.java for javadoc */
+  public String transaction_pay(int reservationId) {
+    // TODO: YOUR CODE HERE
+    if (!isLoggedIn) {
+      return "Cannot pay, not logged in\n";
+    }
+    try {
+      check_reservation_status_stmt.clearParameters();
+      check_reservation_status_stmt.setInt(1, reservationId);
+      check_reservation_status_stmt.setString(2, this.username);
+      ResultSet rs = check_reservation_status_stmt.executeQuery();
+      rs.next();
+      if (rs.getInt(1) == 0) {
+        rs.close();
+        return "Cannot find unpaid reservation " + reservationId + " under user: " + this.username + "\n";
+      }
+      rs.close();
+      // get the reservation
+      get_reservation_stmt.clearParameters();
+      get_reservation_stmt.setInt(1, reservationId);
+      get_reservation_stmt.setString(2, this.username);
+      ResultSet res = get_reservation_stmt.executeQuery();
+      res.next();
+      int price = res.getInt("price");
+      res.close(); 
+      // check if the user has enough money in their account
+      check_user_exists_stmt.clearParameters();
+      check_user_exists_stmt.setString(1, this.username);
+      ResultSet user_info = check_user_exists_stmt.executeQuery();
+      user_info.next();
+      int balance = user_info.getInt("balance");
+      user_info.close();
+      if (balance < price) {
+        return "User has only " + balance + " in account but itinerary costs " + price + "\n";
+      }
+      // update the reservation to be paid
+      update_paid_stmt.clearParameters();
+      update_paid_stmt.setInt(1, reservationId);
+      update_paid_stmt.setString(2, this.username);
+      update_paid_stmt.executeUpdate();
+      // update the user's balance
+      int new_balance = balance - price;
+      update_user_balance_stmt.clearParameters();
+      update_user_balance_stmt.setInt(1, new_balance);
+      update_user_balance_stmt.setString(2, this.username);
+      update_user_balance_stmt.executeUpdate();
+      return "Paid reservation: " + reservationId + " remaining balance: " + new_balance + "\n";
+    } catch (SQLException e) {
+      e.printStackTrace();
+    }
+    return "Failed to pay for reservation " + reservationId + "\n";
+  }
+
+  /* See QueryAbstract.java for javadoc */
+  public String transaction_reservations() {
+    // TODO: YOUR CODE HERE
+    if (!isLoggedIn) {
+      return "Cannot view reservations, not logged in\n";
+    }
+    try {
+      get_user_reservation_stmt.clearParameters();
+      get_user_reservation_stmt.setString(1, this.username);
+      ResultSet rs = get_user_reservation_stmt.executeQuery();
+      if (!rs.next()) {
+        rs.close();
+        return "No reservations found\n";
+      }
+      StringBuilder str = new StringBuilder();
+      boolean paid = false;
+      while (rs.next()){
+        if (rs.getInt("paid") == 1){
+          paid = true;
+        } else {
+          paid = false;
+        }
+        str.append("Reservation " + rs.getInt("rid") + " paid: " + paid + ":\n");
+        Routes r = routes.get(rs.getInt("rid"));
+        for (Flight f : r.flights){
+          str.append(f);
+          str.append("\n");
+        }
+      }
+      rs.close();
+      return str.toString();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return "Failed to retrieve reservations\n";
+  }
+
+  /**
+   * Example utility function that uses prepared statements
+   */
+  private int checkFlightCapacity(int fid) throws SQLException {
+    flightCapacityStmt.clearParameters();
+    flightCapacityStmt.setInt(1, fid);
+    ResultSet results = flightCapacityStmt.executeQuery();
+    results.next();
+    int capacity = results.getInt("capacity");
+    results.close();
+    return capacity;
+  }
+
+  /**
+   * Utility function to determine whether an error was caused by a deadlock
+   */
+  private static boolean isDeadlock(SQLException e) {
+    return e.getErrorCode() == 1205;
+  }
+
+
   class Routes implements Comparable<Routes>{
     public int route_num;
     public int time;
@@ -284,46 +479,6 @@ public class Query extends QueryAbstract {
       }
       return str.toString();
     }
-  }
-
-  /* See QueryAbstract.java for javadoc */
-  public String transaction_book(int itineraryId) {
-    // TODO: YOUR CODE HERE
-    return "Booking failed\n";
-  }
-
-  /* See QueryAbstract.java for javadoc */
-  public String transaction_pay(int reservationId) {
-    // TODO: YOUR CODE HERE
-    return "Failed to pay for reservation " + reservationId + "\n";
-  }
-
-  /* See QueryAbstract.java for javadoc */
-  public String transaction_reservations() {
-    // TODO: YOUR CODE HERE
-    return "Failed to retrieve reservations\n";
-  }
-
-  /**
-   * Example utility function that uses prepared statements
-   */
-  private int checkFlightCapacity(int fid) throws SQLException {
-    flightCapacityStmt.clearParameters();
-    flightCapacityStmt.setInt(1, fid);
-
-    ResultSet results = flightCapacityStmt.executeQuery();
-    results.next();
-    int capacity = results.getInt("capacity");
-    results.close();
-
-    return capacity;
-  }
-
-  /**
-   * Utility function to determine whether an error was caused by a deadlock
-   */
-  private static boolean isDeadlock(SQLException e) {
-    return e.getErrorCode() == 1205;
   }
 
   /**

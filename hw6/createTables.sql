@@ -44,10 +44,11 @@ CREATE TABLE USERS_ebai2022 (
 
 CREATE TABLE RESERVATIONS_ebai2022 (
     rid INT PRIMARY KEY,
-    paid BIT,
+    username VARCHAR(20) REFERENCES USERS_ebai2022 ON DELETE CASCADE,
+    day_of_month INT,
+    paid INT,
     price INT,
     fid1 INT REFERENCES FLIGHTS(fid) NOT NULL,
     fid2 INT REFERENCES FLIGHTS(fid),
-    direct BIT,
-    username VARCHAR(20) REFERENCES USERS_ebai2022 ON DELETE CASCADE
+    direct INT
 );
