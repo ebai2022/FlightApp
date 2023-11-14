@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="flightapp.FlightServiceTest" time="20.126" tests="1" errors="0" skipped="0" failures="1">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="flightapp.FlightServiceTest" time="290.201" tests="24" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="17"/>
     <property name="sun.cpu.isalist" value="amd64"/>
-    <property name="test.cases" value="cases/no_transaction/reservations/reservations_basic.test.txt"/>
+    <property name="test.cases" value="cases/no_transaction"/>
     <property name="sun.jnu.encoding" value="Cp1252"/>
     <property name="java.class.path" value="C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\surefire-booter\3.0.0-M5\surefire-booter-3.0.0-M5.jar;C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\surefire-api\3.0.0-M5\surefire-api-3.0.0-M5.jar;C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\surefire-logger-api\3.0.0-M5\surefire-logger-api-3.0.0-M5.jar;C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\surefire-shared-utils\3.0.0-M4\surefire-shared-utils-3.0.0-M4.jar;C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\surefire-extensions-spi\3.0.0-M5\surefire-extensions-spi-3.0.0-M5.jar;C:\Users\Ethan\Documents\CSE344\hw6\target\test-classes;C:\Users\Ethan\Documents\CSE344\hw6\target\classes;C:\Users\Ethan\.m2\repository\junit\junit\4.13\junit-4.13.jar;C:\Users\Ethan\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar;C:\Users\Ethan\.m2\repository\com\microsoft\sqlserver\mssql-jdbc\9.2.1.jre11\mssql-jdbc-9.2.1.jre11.jar;C:\Users\Ethan\.m2\repository\org\mybatis\mybatis\3.5.7\mybatis-3.5.7.jar;C:\Users\Ethan\.m2\repository\commons-io\commons-io\2.8.0\commons-io-2.8.0.jar;C:\Users\Ethan\.m2\repository\com\google\guava\guava\28.0-jre\guava-28.0-jre.jar;C:\Users\Ethan\.m2\repository\com\google\guava\failureaccess\1.0.1\failureaccess-1.0.1.jar;C:\Users\Ethan\.m2\repository\com\google\guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar;C:\Users\Ethan\.m2\repository\com\google\code\findbugs\jsr305\3.0.2\jsr305-3.0.2.jar;C:\Users\Ethan\.m2\repository\org\checkerframework\checker-qual\2.8.1\checker-qual-2.8.1.jar;C:\Users\Ethan\.m2\repository\com\google\errorprone\error_prone_annotations\2.3.2\error_prone_annotations-2.3.2.jar;C:\Users\Ethan\.m2\repository\com\google\j2objc\j2objc-annotations\1.3\j2objc-annotations-1.3.jar;C:\Users\Ethan\.m2\repository\org\codehaus\mojo\animal-sniffer-annotations\1.17\animal-sniffer-annotations-1.17.jar;C:\Users\Ethan\Documents\CSE344\hw6/distributed.jar;C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\surefire-junit4\3.0.0-M5\surefire-junit4-3.0.0-M5.jar;C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\common-java5\3.0.0-M5\common-java5-3.0.0-M5.jar;C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\common-junit3\3.0.0-M5\common-junit3-3.0.0-M5.jar;C:\Users\Ethan\.m2\repository\org\apache\maven\surefire\common-junit4\3.0.0-M5\common-junit4-3.0.0-M5.jar"/>
     <property name="java.vm.vendor" value="Eclipse Adoptium"/>
@@ -16,7 +16,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="C:\Program Files\Eclipse Adoptium\jdk-17.0.6.10-hotspot\bin"/>
-    <property name="sun.java.command" value="org.apache.maven.surefire.booter.ForkedBooter C:\Users\Ethan\AppData\Local\Temp\surefire15748240913267713344 2023-11-11T23-00-05_298-jvmRun1 surefire17169860338091214217tmp surefire_010007108664942832543tmp"/>
+    <property name="sun.java.command" value="org.apache.maven.surefire.booter.ForkedBooter C:\Users\Ethan\AppData\Local\Temp\surefire2858903867055242320 2023-11-13T20-42-48_670-jvmRun1 surefire14609941687873336190tmp surefire_06607854610869386536tmp"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="C:\Users\Ethan\Documents\CSE344\hw6\target\test-classes;C:\Users\Ethan\Documents\CSE344\hw6\target\classes;C:\Users\Ethan\.m2\repository\junit\junit\4.13\junit-4.13.jar;C:\Users\Ethan\.m2\repository\org\hamcrest\hamcrest-core\1.3\hamcrest-core-1.3.jar;C:\Users\Ethan\.m2\repository\com\microsoft\sqlserver\mssql-jdbc\9.2.1.jre11\mssql-jdbc-9.2.1.jre11.jar;C:\Users\Ethan\.m2\repository\org\mybatis\mybatis\3.5.7\mybatis-3.5.7.jar;C:\Users\Ethan\.m2\repository\commons-io\commons-io\2.8.0\commons-io-2.8.0.jar;C:\Users\Ethan\.m2\repository\com\google\guava\guava\28.0-jre\guava-28.0-jre.jar;C:\Users\Ethan\.m2\repository\com\google\guava\failureaccess\1.0.1\failureaccess-1.0.1.jar;C:\Users\Ethan\.m2\repository\com\google\guava\listenablefuture\9999.0-empty-to-avoid-conflict-with-guava\listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar;C:\Users\Ethan\.m2\repository\com\google\code\findbugs\jsr305\3.0.2\jsr305-3.0.2.jar;C:\Users\Ethan\.m2\repository\org\checkerframework\checker-qual\2.8.1\checker-qual-2.8.1.jar;C:\Users\Ethan\.m2\repository\com\google\errorprone\error_prone_annotations\2.3.2\error_prone_annotations-2.3.2.jar;C:\Users\Ethan\.m2\repository\com\google\j2objc\j2objc-annotations\1.3\j2objc-annotations-1.3.jar;C:\Users\Ethan\.m2\repository\org\codehaus\mojo\animal-sniffer-annotations\1.17\animal-sniffer-annotations-1.17.jar;C:\Users\Ethan\Documents\CSE344\hw6/distributed.jar;"/>
     <property name="sun.cpu.endian" value="little"/>
@@ -57,43 +57,106 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="61.0"/>
   </properties>
-  <testcase name="runTest[0]" classname="flightapp.FlightServiceTest" time="18.281">
-    <failure message="Failed: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\reservations\reservations_basic.test.txt. Actual outcome were: &#10;---Terminal 0 begin&#10;Created user user1&#10;Logged in as user1&#10;Itinerary 0: 1 flight(s), 297 minutes&#10;ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140&#10;Booked flight(s), reservation ID: 1&#10;Goodbye&#10;---Terminal 0 end&#10;&#10;&#10;Possible outcomes were: &#10;===== Outcome 0 =====&#10;---Terminal 0 begin&#10;Created user user1&#10;Logged in as user1&#10;Itinerary 0: 1 flight(s), 297 minutes&#10;ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140&#10;Booked flight(s), reservation ID: 1&#10;Reservation 1 paid: false:&#10;ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140&#10;Goodbye&#10;---Terminal 0 end&#10;&#10;&#10;" type="java.lang.AssertionError"><![CDATA[java.lang.AssertionError: 
-Failed: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\reservations\reservations_basic.test.txt. Actual outcome were: 
----Terminal 0 begin
-Created user user1
-Logged in as user1
-Itinerary 0: 1 flight(s), 297 minutes
-ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140
-Booked flight(s), reservation ID: 1
-Goodbye
----Terminal 0 end
-
-
-Possible outcomes were: 
-===== Outcome 0 =====
----Terminal 0 begin
-Created user user1
-Logged in as user1
-Itinerary 0: 1 flight(s), 297 minutes
-ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140
-Booked flight(s), reservation ID: 1
-Reservation 1 paid: false:
-ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140
-Goodbye
----Terminal 0 end
-
-
-
-	at flightapp.FlightServiceTest.runTest(FlightServiceTest.java:514)
-]]></failure>
+  <testcase name="runTest[0]" classname="flightapp.FlightServiceTest" time="18.198">
     <system-out><![CDATA[Running test setup...
 ... using dbconn.properties for test credentials
 ... resetting database (ie, dropping all tables with suffix: ebai2022)
 ... running createTables.sql
 
 Starting tests
-Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\reservations\reservations_basic.test.txt
+Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\book\book_basic.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[1]" classname="flightapp.FlightServiceTest" time="18.319">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\book\book_withoutLogIn.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[2]" classname="flightapp.FlightServiceTest" time="2.38">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\create\create_basic.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[3]" classname="flightapp.FlightServiceTest" time="1.439">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\create\create_duplicate.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[4]" classname="flightapp.FlightServiceTest" time="0.719">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\create\create_negbalance.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[5]" classname="flightapp.FlightServiceTest" time="1.928">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\login\login_already.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[6]" classname="flightapp.FlightServiceTest" time="1.619">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\login\login_alreadyWrongPassword.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[7]" classname="flightapp.FlightServiceTest" time="3.098">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\login\login_sameUser.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[8]" classname="flightapp.FlightServiceTest" time="1.64">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\login\login_single.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[9]" classname="flightapp.FlightServiceTest" time="1.425">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\login\login_success.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[10]" classname="flightapp.FlightServiceTest" time="1.435">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\login\login_wrongPassword.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[11]" classname="flightapp.FlightServiceTest" time="19.803">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\pay\pay_already.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[12]" classname="flightapp.FlightServiceTest" time="18.7">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\pay\pay_basic.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[13]" classname="flightapp.FlightServiceTest" time="23.285">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\pay\pay_indirectFlightsItinerary.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[14]" classname="flightapp.FlightServiceTest" time="18.874">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\pay\pay_insufficient.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[15]" classname="flightapp.FlightServiceTest" time="21.335">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\reservations\reservations_basic.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[16]" classname="flightapp.FlightServiceTest" time="20.287">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\reservations\reservations_same_day.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[17]" classname="flightapp.FlightServiceTest" time="0.809">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\reservations\reservations_userNotLoggedIn.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[18]" classname="flightapp.FlightServiceTest" time="17.548">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\search\search_basic.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[19]" classname="flightapp.FlightServiceTest" time="17.903">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\search\search_indirect.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[20]" classname="flightapp.FlightServiceTest" time="18.864">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\search\search_lessThanN.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[21]" classname="flightapp.FlightServiceTest" time="18.69">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\search\search_none.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[22]" classname="flightapp.FlightServiceTest" time="21.268">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\search\search_topk.test.txt
+]]></system-out>
+  </testcase>
+  <testcase name="runTest[23]" classname="flightapp.FlightServiceTest" time="18.953">
+    <system-out><![CDATA[Running test file: C:\Users\Ethan\Documents\CSE344\hw6\cases\no_transaction\search\search_topk_direct.test.txt
 ]]></system-out>
   </testcase>
 </testsuite>

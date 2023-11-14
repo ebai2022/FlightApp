@@ -6,6 +6,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+
+import com.microsoft.sqlserver.jdbc.SQLServerError;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.io.*;
@@ -43,6 +46,9 @@ public class Query extends QueryAbstract {
   private static final String get_user_reservation = "SELECT * FROM RESERVATIONS_ebai2022 WHERE username = ?";
   private static final String update_paid = "UPDATE RESERVATIONS_ebai2022 SET paid = 1 WHERE rid = ? AND username = ?";
   private static final String update_user_balance = "UPDATE Users_ebai2022 SET balance = ? WHERE username = ?";
+  private static final String get_flight = "SELECT fid, day_of_month, carrier_id, flight_num, origin_city, dest_city, actual_time, capacity, price "
+  + "FROM FLIGHTS WHERE fid = ?";
+  private static final String get_num_reserved = "SELECT COUNT(*) FROM RESERVATIONS_ebai2022 WHERE fid1 = ? OR fid2 = ?";
   //
   // Instance variables
   //
@@ -62,6 +68,8 @@ public class Query extends QueryAbstract {
   private PreparedStatement get_user_reservation_stmt;
   private PreparedStatement update_paid_stmt;
   private PreparedStatement update_user_balance_stmt;
+  private PreparedStatement get_flight_stmt;
+  private PreparedStatement get_num_reserved_stmt;
   private boolean isLoggedIn;
   private String username;
   private List<Routes> routes;
@@ -80,7 +88,6 @@ public class Query extends QueryAbstract {
       // TODO: YOUR CODE HERE
       clear_users_stmt.executeUpdate();
       clear_reservations_stmt.executeUpdate();
-      // System.out.println("Cleared " + users_cleared + " users and " + reservations_cleared + " reservations");
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -107,6 +114,8 @@ public class Query extends QueryAbstract {
     get_user_reservation_stmt = conn.prepareStatement(get_user_reservation);
     update_paid_stmt = conn.prepareStatement(update_paid);
     update_user_balance_stmt = conn.prepareStatement(update_user_balance);
+    get_flight_stmt = conn.prepareStatement(get_flight);
+    get_num_reserved_stmt = conn.prepareStatement(get_num_reserved);
   }
 
   /* See QueryAbstract.java for javadoc */
@@ -120,8 +129,6 @@ public class Query extends QueryAbstract {
       get_password_stmt.clearParameters();
       get_password_stmt.setString(1, username);
       ResultSet rs = get_password_stmt.executeQuery();
-      // I assume if the user is not found, rs.next() will be false and not null 
-      // so the login will fail - double check this assumption
       while (rs.next()) {
         byte[] saltedHash = rs.getBytes("password");
         if (PasswordUtils.plaintextMatchesSaltedHash(password, saltedHash)) {
@@ -135,6 +142,8 @@ public class Query extends QueryAbstract {
     }
     catch (SQLException e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Login failed\n";
   }
@@ -142,33 +151,45 @@ public class Query extends QueryAbstract {
   /* See QueryAbstract.java for javadoc */
   public String transaction_createCustomer(String username, String password, int initAmount) {
     // TODO: YOUR CODE HERE
-    // Do I need to check NULLS and other exceptions?
     // Fail to create user if they have a negative balance
     if (initAmount < 0) {
       return "Failed to create user\n";
     }
     // Usernames are not case-sensitive, so convert to lowercase
     username = username.toLowerCase();
+    boolean lock = true;
     try {
-      // Fail to create user if that username already exists
-      check_user_exists_stmt.clearParameters();
-      check_user_exists_stmt.setString(1, username);
-      ResultSet rs = check_user_exists_stmt.executeQuery();
-      while (rs.next()) {
-        rs.close();
-        return "Failed to create user\n";
+      while (lock){
+        try {
+          conn.setAutoCommit(false);
+          // Fail to create user if that username already exists
+          check_user_exists_stmt.clearParameters();
+          check_user_exists_stmt.setString(1, username);
+          ResultSet rs = check_user_exists_stmt.executeQuery();
+          while (rs.next()) {
+            rs.close();
+            conn.rollback();
+            return "Failed to create user\n";
+          }
+          rs.close();
+          // Create the user
+          create_customer_stmt.clearParameters();
+          create_customer_stmt.setString(1, username);
+          byte[] saltedHash = PasswordUtils.saltAndHashPassword(password);
+          create_customer_stmt.setBytes(2, saltedHash);
+          create_customer_stmt.setInt(3, initAmount);
+          create_customer_stmt.executeUpdate();
+          conn.commit();
+          return "Created user " + username + "\n";
+        } catch (SQLException e) {
+          lock = isDeadlock(e);
+          conn.rollback();
+        }
       }
-      rs.close();
-      // Create the user
-      create_customer_stmt.clearParameters();
-      create_customer_stmt.setString(1, username);
-      byte[] saltedHash = PasswordUtils.saltAndHashPassword(password);
-      create_customer_stmt.setBytes(2, saltedHash);
-      create_customer_stmt.setInt(3, initAmount);
-      create_customer_stmt.executeUpdate();
-      return "Created user " + username + "\n";
     } catch (SQLException e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Failed to create user\n";
   }
@@ -197,24 +218,21 @@ public class Query extends QueryAbstract {
       get_direct_flights_stmt.setString(2, originCity);
       get_direct_flights_stmt.setString(3, destinationCity);
       get_direct_flights_stmt.setInt(4, dayOfMonth);
-      ResultSet oneHopResults = get_direct_flights_stmt.executeQuery();
-      while (oneHopResults.next()) {
-        int fid = oneHopResults.getInt("fid");
-        int day = oneHopResults.getInt("day_of_month");
-        String carrierId = oneHopResults.getString("carrier_id");
-        String flightNum = oneHopResults.getString("flight_num");
-        String flight_origin = oneHopResults.getString("origin_city");
-        String flight_dest = oneHopResults.getString("dest_city");
-        int time = oneHopResults.getInt("actual_time");
-        int capacity = oneHopResults.getInt("capacity");
-        int price = oneHopResults.getInt("price");
-        Flight f = new Flight(fid, day, carrierId, flightNum, flight_origin, flight_dest, time, capacity, price);
+      ResultSet directResults = get_direct_flights_stmt.executeQuery();
+      while (directResults.next()) {
+        int fid = directResults.getInt("fid");
+        int day = directResults.getInt("day_of_month");
+        String flight_origin = directResults.getString("origin_city");
+        String flight_dest = directResults.getString("dest_city");
+        int time = directResults.getInt("actual_time");
+        int price = directResults.getInt("price");
+        Flight f = getFlight(fid);
         List<Flight> flights = new ArrayList<Flight>();
         flights.add(f);
         Routes r = new Routes(0, time, day, price, flights, flight_origin, flight_dest);
         routes.add(r);
       }
-      oneHopResults.close();
+      directResults.close();
       
       if (!directFlight && routes.size() < numberOfItineraries){
         // If we have gotten to this point, we know we need to fulfill the rest of the flights with indirect flights
@@ -224,39 +242,33 @@ public class Query extends QueryAbstract {
         get_onestop_flights_stmt.setString(3, destinationCity);
         get_onestop_flights_stmt.setInt(4, dayOfMonth);
         get_onestop_flights_stmt.setInt(5, dayOfMonth);
-        ResultSet twoHopResults = get_onestop_flights_stmt.executeQuery();
-        while (twoHopResults.next()){
-          int fid1 = twoHopResults.getInt(1);
-          int fid2 = twoHopResults.getInt(2);
-          String carrierId1 = twoHopResults.getString(3);
-          String carrierId2 = twoHopResults.getString(4);
-          String flightNum1 = twoHopResults.getString(5);
-          String flightNum2 = twoHopResults.getString(6);
-          String flight_origin1 = twoHopResults.getString(7);
-          String flight_origin2 = twoHopResults.getString(8);
-          String flight_dest1 = twoHopResults.getString(9);
-          String flight_dest2 = twoHopResults.getString(10);
-          int time1 = twoHopResults.getInt(11);
-          int time2 = twoHopResults.getInt(12);
-          int capacity1 = twoHopResults.getInt(13);
-          int capacity2 = twoHopResults.getInt(14);
-          int price1 = twoHopResults.getInt(15);
-          int price2 = twoHopResults.getInt(16);
+        ResultSet oneStopResults = get_onestop_flights_stmt.executeQuery();
+        while (oneStopResults.next()){
+          int fid1 = oneStopResults.getInt(1);
+          int fid2 = oneStopResults.getInt(2);
+          String flight_origin1 = oneStopResults.getString(7);
+          String flight_dest2 = oneStopResults.getString(10);
+          int time1 = oneStopResults.getInt(11);
+          int time2 = oneStopResults.getInt(12);
+          int price1 = oneStopResults.getInt(15);
+          int price2 = oneStopResults.getInt(16);
           int day = dayOfMonth;
-          Flight f1 = new Flight(fid1, day, carrierId1, flightNum1, flight_origin1, flight_dest1, time1, capacity1, price1);
-          Flight f2 = new Flight(fid2, day, carrierId2, flightNum2, flight_origin2, flight_dest2, time2, capacity2, price2);
+          Flight f1 = getFlight(fid1);
+          Flight f2 = getFlight(fid2);
           List<Flight> flights = new ArrayList<Flight>();
           flights.add(f1);
           flights.add(f2);
           Routes r = new Routes(0, time1 + time2, day, price1 + price2, flights, flight_origin1, flight_dest2);
           routes.add(r);
         }
-        twoHopResults.close();
+        oneStopResults.close();
       }
       // merge the results and print them
     } catch (SQLException e) {
       e.printStackTrace();
       return "Failed to search\n";
+    } finally {
+      checkDanglingTransaction();
     }
     if (routes.size() == 0) {
       return "No flights match your selection\n";
@@ -281,51 +293,70 @@ public class Query extends QueryAbstract {
       return "No such itinerary " + itineraryId + "\n";
     }
     try {
-      Routes r = routes.get(itineraryId);
-      // check if the user has a reservation on the same day as the one they are trying to book now
-      check_same_day_reservation_stmt.clearParameters();
-      check_same_day_reservation_stmt.setString(1, this.username);
-      check_same_day_reservation_stmt.setInt(2, r.date);
-      ResultSet rs = check_same_day_reservation_stmt.executeQuery();
-      while (rs.next()) {
-        rs.close();
-        return "You cannot book two flights in the same day\n";
-      }
-      // check if the flight(s) maximum capacity would be exceeded (it needs >= 1 seat available)
-      for (Flight f : r.flights) {
-        int capacity = checkFlightCapacity(f.fid);
-        if (capacity <= 0) {
-          return "Booking failed\n";
+      boolean lock = true;
+      while (lock){
+        try {
+          conn.setAutoCommit(false);
+          Routes r = routes.get(itineraryId);
+          // check if the user has a reservation on the same day as the one they are trying to book now
+          check_same_day_reservation_stmt.clearParameters();
+          check_same_day_reservation_stmt.setString(1, this.username);
+          check_same_day_reservation_stmt.setInt(2, r.date);
+          ResultSet rs = check_same_day_reservation_stmt.executeQuery();
+          while (rs.next()) {
+            rs.close();
+            conn.rollback();
+            return "You cannot book two flights in the same day\n";
+          }
+          // check if the flight(s) maximum capacity would be exceeded (it needs >= 1 seat available)
+          for (Flight f : r.flights) {
+            get_num_reserved_stmt.clearParameters();
+            get_num_reserved_stmt.setInt(1, f.fid);
+            get_num_reserved_stmt.setInt(2, f.fid);
+            ResultSet num_reserved = get_num_reserved_stmt.executeQuery();
+            num_reserved.next();
+            int capacity = f.capacity - num_reserved.getInt(1);
+            if (capacity <= 0) {
+              conn.rollback();
+              return "Booking failed\n";
+            }
+          }
+          // get current reservation ID maximum
+          ResultSet prev_RID = get_curr_rid_max_stmt.executeQuery();
+          prev_RID.next();
+          int rid = prev_RID.getInt(1) + 1;
+          prev_RID.close();
+
+          // create the reservation
+          book_reservation_stmt.clearParameters();
+          book_reservation_stmt.setInt(1, rid);
+          book_reservation_stmt.setString(2, this.username);
+          book_reservation_stmt.setInt(3, r.date);
+          book_reservation_stmt.setInt(4, 0);
+          book_reservation_stmt.setInt(5, r.price);
+          book_reservation_stmt.setInt(6, r.flights.get(0).fid);
+          // if we have a direct flight, set the second flight to null and the direct boolean to true
+          if (r.flights.size() == 1) {
+            book_reservation_stmt.setNull(7, java.sql.Types.INTEGER);
+            book_reservation_stmt.setInt(8, 0);
+          } else {
+            book_reservation_stmt.setInt(7, r.flights.get(1).fid);
+            book_reservation_stmt.setInt(8, 1);
+          }
+          book_reservation_stmt.executeUpdate();
+          conn.commit();
+          return "Booked flight(s), reservation ID: " + rid + "\n";          
+        } catch (SQLException e) {
+          lock = isDeadlock(e);
+          conn.rollback();
         }
       }
-      // get current reservation ID maximum
-      ResultSet prev_RID = get_curr_rid_max_stmt.executeQuery();
-      prev_RID.next();
-      int rid = prev_RID.getInt(1) + 1;
-      prev_RID.close();
-
-      // create the reservation
-      book_reservation_stmt.clearParameters();
-      book_reservation_stmt.setInt(1, rid);
-      book_reservation_stmt.setString(2, this.username);
-      book_reservation_stmt.setInt(3, r.date);
-      book_reservation_stmt.setInt(4, 0);
-      book_reservation_stmt.setInt(5, r.price);
-      book_reservation_stmt.setInt(6, r.flights.get(0).fid);
-      // if we have a direct flight, set the second flight to null and the direct boolean to true
-      if (r.flights.size() == 1) {
-        book_reservation_stmt.setNull(7, java.sql.Types.INTEGER);
-        book_reservation_stmt.setInt(8, 0);
-      } else {
-        book_reservation_stmt.setInt(7, r.flights.get(1).fid);
-        book_reservation_stmt.setInt(8, 1);
-      }
-      book_reservation_stmt.executeUpdate();
-      return "Booked flight(s), reservation ID: " + rid + "\n";
     } catch (SQLException e) {
       e.printStackTrace();
-      return "Booking failed\n";
+    } finally {
+      checkDanglingTransaction();
     }
+    return "Booking failed\n";
   }
 
   /* See QueryAbstract.java for javadoc */
@@ -334,49 +365,63 @@ public class Query extends QueryAbstract {
     if (!isLoggedIn) {
       return "Cannot pay, not logged in\n";
     }
+    boolean lock = true;
     try {
-      check_reservation_status_stmt.clearParameters();
-      check_reservation_status_stmt.setInt(1, reservationId);
-      check_reservation_status_stmt.setString(2, this.username);
-      ResultSet rs = check_reservation_status_stmt.executeQuery();
-      rs.next();
-      if (rs.getInt(1) == 0) {
-        rs.close();
-        return "Cannot find unpaid reservation " + reservationId + " under user: " + this.username + "\n";
+      while (lock){
+        try {
+          conn.setAutoCommit(false);
+          check_reservation_status_stmt.clearParameters();
+          check_reservation_status_stmt.setInt(1, reservationId);
+          check_reservation_status_stmt.setString(2, this.username);
+          ResultSet rs = check_reservation_status_stmt.executeQuery();
+          rs.next();
+          if (rs.getInt(1) == 0) {
+            rs.close();
+            conn.rollback();
+            return "Cannot find unpaid reservation " + reservationId + " under user: " + this.username + "\n";
+          }
+          rs.close();
+          // get the reservation
+          get_reservation_stmt.clearParameters();
+          get_reservation_stmt.setInt(1, reservationId);
+          get_reservation_stmt.setString(2, this.username);
+          ResultSet res = get_reservation_stmt.executeQuery();
+          res.next();
+          int price = res.getInt("price");
+          res.close(); 
+          // check if the user has enough money in their account
+          check_user_exists_stmt.clearParameters();
+          check_user_exists_stmt.setString(1, this.username);
+          ResultSet user_info = check_user_exists_stmt.executeQuery();
+          user_info.next();
+          int balance = user_info.getInt("balance");
+          user_info.close();
+          if (balance < price) {
+            conn.rollback();
+            return "User has only " + balance + " in account but itinerary costs " + price + "\n";
+          }
+          // update the reservation to be paid
+          update_paid_stmt.clearParameters();
+          update_paid_stmt.setInt(1, reservationId);
+          update_paid_stmt.setString(2, this.username);
+          update_paid_stmt.executeUpdate();
+          // update the user's balance
+          int new_balance = balance - price;
+          update_user_balance_stmt.clearParameters();
+          update_user_balance_stmt.setInt(1, new_balance);
+          update_user_balance_stmt.setString(2, this.username);
+          update_user_balance_stmt.executeUpdate();
+          conn.commit();
+          return "Paid reservation: " + reservationId + " remaining balance: " + new_balance + "\n";
+          } catch (SQLException e){
+            lock = isDeadlock(e);
+            conn.rollback();
+          }
       }
-      rs.close();
-      // get the reservation
-      get_reservation_stmt.clearParameters();
-      get_reservation_stmt.setInt(1, reservationId);
-      get_reservation_stmt.setString(2, this.username);
-      ResultSet res = get_reservation_stmt.executeQuery();
-      res.next();
-      int price = res.getInt("price");
-      res.close(); 
-      // check if the user has enough money in their account
-      check_user_exists_stmt.clearParameters();
-      check_user_exists_stmt.setString(1, this.username);
-      ResultSet user_info = check_user_exists_stmt.executeQuery();
-      user_info.next();
-      int balance = user_info.getInt("balance");
-      user_info.close();
-      if (balance < price) {
-        return "User has only " + balance + " in account but itinerary costs " + price + "\n";
-      }
-      // update the reservation to be paid
-      update_paid_stmt.clearParameters();
-      update_paid_stmt.setInt(1, reservationId);
-      update_paid_stmt.setString(2, this.username);
-      update_paid_stmt.executeUpdate();
-      // update the user's balance
-      int new_balance = balance - price;
-      update_user_balance_stmt.clearParameters();
-      update_user_balance_stmt.setInt(1, new_balance);
-      update_user_balance_stmt.setString(2, this.username);
-      update_user_balance_stmt.executeUpdate();
-      return "Paid reservation: " + reservationId + " remaining balance: " + new_balance + "\n";
     } catch (SQLException e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Failed to pay for reservation " + reservationId + "\n";
   }
@@ -391,29 +436,39 @@ public class Query extends QueryAbstract {
       get_user_reservation_stmt.clearParameters();
       get_user_reservation_stmt.setString(1, this.username);
       ResultSet rs = get_user_reservation_stmt.executeQuery();
-      if (!rs.next()) {
-        rs.close();
-        return "No reservations found\n";
-      }
       StringBuilder str = new StringBuilder();
-      boolean paid = false;
       while (rs.next()){
-        if (rs.getInt("paid") == 1){
-          paid = true;
+        int paid = rs.getInt("paid");
+        int rid = rs.getInt("rid");
+        int fid1 = rs.getInt("fid1");
+        int fid2 = rs.getInt("fid2");
+        if (paid == 1){
+          str.append("Reservation " + rid + " paid: true:\n");
         } else {
-          paid = false;
+          str.append("Reservation " + rid + " paid: false:\n");
         }
-        str.append("Reservation " + rs.getInt("rid") + " paid: " + paid + ":\n");
-        Routes r = routes.get(rs.getInt("rid"));
-        for (Flight f : r.flights){
+        List<Flight> flights = new ArrayList<>();
+        Flight f1 = getFlight(fid1);
+        flights.add(f1);
+        // check if this is not a one hop flight
+        if (fid2 != 0){
+          Flight f2 = getFlight(fid2);
+          flights.add(f2);
+        }
+        for (Flight f : flights){
           str.append(f);
           str.append("\n");
         }
       }
       rs.close();
+      if (str.length() == 0) {
+        return "No reservations found\n";
+      }
       return str.toString();
     } catch (Exception e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Failed to retrieve reservations\n";
   }
@@ -481,6 +536,24 @@ public class Query extends QueryAbstract {
     }
   }
 
+  private Flight getFlight(int fid) throws SQLException{
+    get_flight_stmt.clearParameters();
+    get_flight_stmt.setInt(1, fid);
+    ResultSet rs = get_flight_stmt.executeQuery();
+    rs.next();
+    int id = rs.getInt("fid");
+    int day = rs.getInt("day_of_month");
+    String carrierId = rs.getString("carrier_id");
+    String flightNum = rs.getString("flight_num");
+    String flight_origin = rs.getString("origin_city");
+    String flight_dest = rs.getString("dest_city");
+    int time = rs.getInt("actual_time");
+    int capacity = rs.getInt("capacity");
+    int price = rs.getInt("price");
+    Flight f = new Flight(id, day, carrierId, flightNum, flight_origin, flight_dest, time, capacity, price);
+    rs.close();
+    return f;
+  }
   /**
    * A class to store information about a single flight
    *
