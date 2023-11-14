@@ -198,12 +198,7 @@ public class Query extends QueryAbstract {
   public String transaction_search(String originCity, String destinationCity, 
                                    boolean directFlight, int dayOfMonth,
                                    int numberOfItineraries) {
-    // WARNING: the below code is insecure (it's susceptible to SQL injection attacks) AND only
-    // handles searches for direct flights.  We are providing it *only* as an example of how
-    // to use JDBC; you are required to replace it with your own secure implementation.
-    //
     // TODO: YOUR CODE HERE
-
     StringBuffer sb = new StringBuffer();
     try {
       /*

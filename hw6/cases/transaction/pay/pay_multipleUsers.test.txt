@@ -1,0 +1,61 @@
+# Two users in two terminals; both reserve the same flight with enough space and attempt to pay for it
+
+# commands/input for terminal 1:
+create user1 user1 1000
+login user1 user1
+search "Seattle WA" "Boston MA" 1 1 1
+book 0
+pay 1
+quit
+*
+
+# Scenario 1 (they get the reservation first and pay for it successfully):
+Created user user1
+Logged in as user1
+Itinerary 0: 1 flight(s), 297 minutes
+ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140
+Booked flight(s), reservation ID: 1
+Paid reservation: 1 remaining balance: 860
+Goodbye
+|
+
+# Scenario 2 (they get the reservation second so the payment fails since the reservation ID is wrong):
+Created user user1
+Logged in as user1
+Itinerary 0: 1 flight(s), 297 minutes
+ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140
+Booked flight(s), reservation ID: 2
+Cannot find unpaid reservation 1 under user: user1
+Goodbye
+*
+
+##################### Terminal 2: #####################
+
+# commands/input for terminal 2:
+create user2 user2 1000
+login user2 user2
+search "Seattle WA" "Boston MA" 1 1 1
+book 0
+pay 2
+quit
+*
+
+# Scenario 1 (they get the reservation second and pay for it successfully):
+Created user user2
+Logged in as user2
+Itinerary 0: 1 flight(s), 297 minutes
+ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140
+Booked flight(s), reservation ID: 2
+Paid reservation: 2 remaining balance: 860
+Goodbye
+|
+
+# Scenario 2 (they get the reservation first so the payment fails since the reservation ID is wrong):
+Created user user2
+Logged in as user2
+Itinerary 0: 1 flight(s), 297 minutes
+ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140
+Booked flight(s), reservation ID: 1
+Cannot find unpaid reservation 2 under user: user2
+Goodbye
+*
