@@ -1,0 +1,26 @@
+# Testing that two consecutive search/book combinations work in tandem with paying for both flights
+# commands to execute:
+create user1 user1 100000
+login user1 user1
+search "Seattle WA" "Boston MA" 1 1 1
+book 0
+search "Boston MA" "Seattle WA" 1 3 1
+book 0
+pay 1
+pay 2
+quit
+*
+
+# expected output:
+Created user user1
+Logged in as user1
+Itinerary 0: 1 flight(s), 297 minutes
+ID: 60454 Day: 1 Carrier: AS Number: 24 Origin: Seattle WA Dest: Boston MA Duration: 297 Capacity: 14 Price: 140
+Booked flight(s), reservation ID: 1
+Itinerary 0: 1 flight(s), 347 minutes
+ID: 704179 Day: 3 Carrier: AS Number: 15 Origin: Boston MA Dest: Seattle WA Duration: 347 Capacity: 13 Price: 958
+Booked flight(s), reservation ID: 2
+Paid reservation: 1 remaining balance: 99860
+Paid reservation: 2 remaining balance: 98902
+Goodbye
+*

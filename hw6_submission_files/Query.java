@@ -135,7 +135,6 @@ public class Query extends QueryAbstract {
           isLoggedIn = true;
           rs.close();
           this.username = username.toLowerCase();
-          // clear routes
           routes = null;
           return "Logged in as " + username + "\n";
         }
@@ -144,6 +143,8 @@ public class Query extends QueryAbstract {
     }
     catch (SQLException e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Login failed\n";
   }
@@ -169,7 +170,6 @@ public class Query extends QueryAbstract {
           while (rs.next()) {
             rs.close();
             conn.rollback();
-            conn.setAutoCommit(true);
             return "Failed to create user\n";
           }
           rs.close();
@@ -181,16 +181,16 @@ public class Query extends QueryAbstract {
           create_customer_stmt.setInt(3, initAmount);
           create_customer_stmt.executeUpdate();
           conn.commit();
-          conn.setAutoCommit(true);
           return "Created user " + username + "\n";
         } catch (SQLException e) {
           lock = isDeadlock(e);
           conn.rollback();
-          conn.setAutoCommit(true);
         }
       }
     } catch (SQLException e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Failed to create user\n";
   }
@@ -263,6 +263,8 @@ public class Query extends QueryAbstract {
     } catch (SQLException e) {
       e.printStackTrace();
       return "Failed to search\n";
+    } finally {
+      checkDanglingTransaction();
     }
     if (routes.size() == 0) {
       return "No flights match your selection\n";
@@ -300,10 +302,8 @@ public class Query extends QueryAbstract {
           while (rs.next()) {
             rs.close();
             conn.rollback();
-            conn.setAutoCommit(true);
             return "You cannot book two flights in the same day\n";
           }
-          rs.close();
           // check if the flight(s) maximum capacity would be exceeded (it needs >= 1 seat available)
           for (Flight f : r.flights) {
             get_num_reserved_stmt.clearParameters();
@@ -313,12 +313,9 @@ public class Query extends QueryAbstract {
             num_reserved.next();
             int capacity = f.capacity - num_reserved.getInt(1);
             if (capacity <= 0) {
-              num_reserved.close();
               conn.rollback();
-              conn.setAutoCommit(true);
               return "Booking failed\n";
             }
-            num_reserved.close();
           }
           // get current reservation ID maximum
           ResultSet prev_RID = get_curr_rid_max_stmt.executeQuery();
@@ -344,16 +341,16 @@ public class Query extends QueryAbstract {
           }
           book_reservation_stmt.executeUpdate();
           conn.commit();
-          conn.setAutoCommit(true);
           return "Booked flight(s), reservation ID: " + rid + "\n";          
         } catch (SQLException e) {
           lock = isDeadlock(e);
           conn.rollback();
-          conn.setAutoCommit(true);
         }
       }
     } catch (SQLException e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Booking failed\n";
   }
@@ -377,7 +374,6 @@ public class Query extends QueryAbstract {
           if (rs.getInt(1) == 0) {
             rs.close();
             conn.rollback();
-            conn.setAutoCommit(true);
             return "Cannot find unpaid reservation " + reservationId + " under user: " + this.username + "\n";
           }
           rs.close();
@@ -398,7 +394,6 @@ public class Query extends QueryAbstract {
           user_info.close();
           if (balance < price) {
             conn.rollback();
-            conn.setAutoCommit(true);
             return "User has only " + balance + " in account but itinerary costs " + price + "\n";
           }
           // update the reservation to be paid
@@ -413,16 +408,16 @@ public class Query extends QueryAbstract {
           update_user_balance_stmt.setString(2, this.username);
           update_user_balance_stmt.executeUpdate();
           conn.commit();
-          conn.setAutoCommit(true);
           return "Paid reservation: " + reservationId + " remaining balance: " + new_balance + "\n";
           } catch (SQLException e){
             lock = isDeadlock(e);
             conn.rollback();
-            conn.setAutoCommit(true);
           }
       }
     } catch (SQLException e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Failed to pay for reservation " + reservationId + "\n";
   }
@@ -468,6 +463,8 @@ public class Query extends QueryAbstract {
       return str.toString();
     } catch (Exception e) {
       e.printStackTrace();
+    } finally {
+      checkDanglingTransaction();
     }
     return "Failed to retrieve reservations\n";
   }

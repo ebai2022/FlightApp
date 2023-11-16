@@ -1,0 +1,14 @@
+What is one thing that you learned while doing M2?
+I learned that multiple users at the same time cause interesting problems for code that uses a single central dynamic database and that we can prevent these issues using locking
+
+What is one thing that surprised you while doing M2?
+I was surprised that we had to let only one user create themselves at the same time, since I thought it was enough that our table schema had usernames as a primary key
+
+What is one question that you still have after doing M2?
+Is there a way for us to make our reservation system more simple without a significant increase in complexity? E.g. I would like to have each person start at an itinerary of 1, meaning every individual would have to have a reservation ID starting at 1 so payments aren't confusing.
+
+Were you able to make any progress on your “one question I still have” from M1?  If so, please describe how it happened (eg, did you stumble upon the answer, did it come up in lecture, did you read about it yourself, etc).  If you did not, describe how you might find an answer to it.
+I was not able to make any progress on my previous question. To find an answer, I could look online and search up the design decisions that lead to the creation of Java and SQL and see if there were any attempts to integrate the two.
+
+Now that you’ve seen how to use Java code to add additional verifications on data that’s saved into a database, how would you represent the CEO in that schema?  Specifically, would you make the manager field NULLable or would you create a special “THIS IS NOT A REAL MANAGER” manager for the CEO?  In other words, which logic would you put in the schema and which logic would you put in Java?
+I would make the ManagerEmplID field for the CEO as -1 (or a specific number that will never be assigned to an employee ID that is easy to track). Thus, when I query within Java, I can pull the integer and check if the returned field is -1. If so, I know that this person is the CEO.
